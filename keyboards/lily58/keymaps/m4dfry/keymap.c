@@ -159,6 +159,8 @@ uint16_t anim_sleep = 0;
 uint8_t current_idle_frame = 0;
 uint8_t current_tap_frame = 0;
 
+uint8_t on_sleep = 0;
+
 //
 // Render right OLED display animation
 //
@@ -226,48 +228,53 @@ static void render_anim(void) {
   };
 
   //assumes 1 frame prep stage
-    void animation_phase(void) {
-        if(get_current_wpm() <=IDLE_SPEED){
-            current_idle_frame = (current_idle_frame + 1) % IDLE_FRAMES;
-            oled_clear();
-            oled_write_raw_P(idle[abs((IDLE_FRAMES-1)-current_idle_frame)], ANIM_SIZE);
-        }
-        if(get_current_wpm() >IDLE_SPEED && get_current_wpm() <TAP_SPEED){
-            oled_clear();
-            // oled_write_raw_P(prep[abs((PREP_FRAMES-1)-current_prep_frame)], ANIM_SIZE); // uncomment if IDLE_FRAMES >1
-            oled_write_raw_P(prep[0], ANIM_SIZE); // remove if IDLE_FRAMES >1
-        }
-        if(get_current_wpm() >=TAP_SPEED){
-            current_tap_frame = (current_tap_frame + 1) % TAP_FRAMES;
-            oled_clear();
-            oled_write_raw_P(tap[abs((TAP_FRAMES-1)-current_tap_frame)], ANIM_SIZE);
-        }
+  void animation_phase(void) {
+      if(get_current_wpm() <=IDLE_SPEED){
+          current_idle_frame = (current_idle_frame + 1) % IDLE_FRAMES;
+          oled_clear();
+          oled_write_raw_P(idle[abs((IDLE_FRAMES-1)-current_idle_frame)], ANIM_SIZE);
+      }
+      if(get_current_wpm() >IDLE_SPEED && get_current_wpm() <TAP_SPEED){
+          oled_clear();
+          // oled_write_raw_P(prep[abs((PREP_FRAMES-1)-current_prep_frame)], ANIM_SIZE); // uncomment if IDLE_FRAMES >1
+          oled_write_raw_P(prep[0], ANIM_SIZE); // remove if IDLE_FRAMES >1
+      }
+      if(get_current_wpm() >=TAP_SPEED){
+          current_tap_frame = (current_tap_frame + 1) % TAP_FRAMES;
+          oled_clear();
+          oled_write_raw_P(tap[abs((TAP_FRAMES-1)-current_tap_frame)], ANIM_SIZE);
+      }
+  }
+    
+    
+  if(timer_elapsed(anim_timer) > ANIM_FRAME_DURATION && on_sleep == 0) {
+    if(!is_oled_on()) {
+      oled_on();
     }
-    if(get_current_wpm() != 0) {
-        if(timer_elapsed(anim_timer) > ANIM_FRAME_DURATION) {
-            anim_timer = timer_read();
-            animation_phase();
-        }
-        anim_sleep = timer_read();
-    } else {
-        if(timer_elapsed(anim_timer) > ANIM_FRAME_DURATION) {
-            anim_timer = timer_read();
-            animation_phase();
-        }
-        if(timer_elapsed(anim_sleep) > SLEEP_TIMER) {
-//            oled_off();
-        }
+    anim_timer = timer_read();
+    animation_phase();
+  }
+ 
+  if(get_current_wpm() != 0) {
+    on_sleep = 0;
+    anim_sleep = timer_read();
+  } else {
+    if(timer_elapsed(anim_sleep) > SLEEP_TIMER && is_oled_on()) {
+      oled_off();
+      on_sleep = 1;
     }
+  }
 }
 
 bool oled_task_user(void) {
   if (is_keyboard_master()) {
     // If you want to change the display of OLED, you need to change here
+    oled_write_ln(read_host_led_state(), false);
     oled_write_ln(read_layer_state(), false);
     oled_write_ln(read_keylog(), false);
     oled_write_ln(read_keylogs(), false);
     //oled_write_ln(read_mode_icon(keymap_config.swap_lalt_lgui), false);
-    oled_write_ln(read_host_led_state(), false);
+    
     //oled_write_ln(read_timelog(), false);
   } else {
     //oled_write(read_logo(), false);
